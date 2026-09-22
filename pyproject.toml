@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "finetunelab"
+version = "0.1.0"
+description = "An educational, modular fine-tuning framework for Qwen3.5 LLMs and VLMs."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = { file = "LICENSE" }
+authors = [{ name = "FineTuneLab contributors" }]
+dependencies = [
+  "accelerate>=1.10,<2",
+  "datasets>=4.0,<5",
+  "numpy>=1.26,<2.3",
+  "pillow>=10,<13",
+  "pydantic>=2.10,<3",
+  "pyyaml>=6.0,<7",
+  "rich>=13.9,<15",
+  "safetensors>=0.5,<1",
+  "torch>=2.5,<3",
+  "torchvision>=0.20,<1",
+  "transformers>=5.13,<6",
+  "trl>=1.13,<2",
+  "peft>=0.17,<1",
+  "typer>=0.15,<1",
+]
+
+[project.optional-dependencies]
+quant = ["bitsandbytes>=0.48,<1"]
+tracking = ["tensorboard>=2.18,<3", "wandb>=0.19,<1"]
+distributed = ["deepspeed>=0.17,<1"]
+notebooks = ["jupyterlab>=4.3,<5", "matplotlib>=3.10,<4"]
+dev = [
+  "nbclient>=0.10,<1",
+  "nbformat>=5.10,<6",
+  "ipykernel>=6.29,<8",
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6,<8",
+  "ruff>=0.11,<1",
+  "types-PyYAML>=6.0,<7",
+]
+
+[project.scripts]
+ftlab = "finetunelab.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/finetunelab"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+markers = [
+  "gpu: requires an NVIDIA GPU and production model weights",
+  "integration: exercises trainer wiring and may be slower",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Lessons introduce imports next to the concept that uses them.
+"notebooks/*.ipynb" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+  "datasets",
+  "datasets.*",
+  "transformers",
+  "transformers.*",
+  "trl",
+  "trl.*",
+  "peft",
+  "peft.*",
+  "accelerate",
+  "accelerate.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"

@@ -1,0 +1,25 @@
+schema_version: 1
+method: ppo
+model:
+  name_or_path: Qwen/Qwen3.5-2B
+  reference_name_or_path: Qwen/Qwen3.5-2B
+  reward_name_or_path: outputs/reward-2b-lora/final
+  value_name_or_path: outputs/reward-2b-lora/final
+data:
+  source: examples/data/prompts.jsonl
+  source_type: local
+  modality: text
+  max_length: 1024
+tuning:
+  strategy: lora
+training:
+  output_dir: outputs/ppo-2b-lora
+  max_steps: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.000003
+generation:
+  max_new_tokens: 128
+kl_coefficient: 0.05
+num_ppo_epochs: 4
+

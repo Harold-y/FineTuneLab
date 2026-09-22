@@ -1,0 +1,21 @@
+schema_version: 1
+method: dapt
+model:
+  name_or_path: Qwen/Qwen3.5-2B-Base
+data:
+  source: examples/data/dapt.jsonl
+  source_type: local
+  modality: text
+  max_length: 2048
+  packing: true
+tuning:
+  strategy: lora
+  lora_rank: 16
+  lora_alpha: 32
+training:
+  output_dir: outputs/dapt-2b-lora
+  max_steps: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0001
+

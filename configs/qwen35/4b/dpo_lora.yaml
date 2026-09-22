@@ -1,0 +1,19 @@
+schema_version: 1
+method: dpo
+model:
+  name_or_path: Qwen/Qwen3.5-4B
+data:
+  source: examples/data/preferences.jsonl
+  source_type: local
+  modality: text
+  max_length: 2048
+tuning:
+  strategy: lora
+training:
+  output_dir: outputs/dpo-4b-lora
+  max_steps: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 0.00001
+beta: 0.1
+

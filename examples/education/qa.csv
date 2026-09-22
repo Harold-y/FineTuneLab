@@ -1,0 +1,13 @@
+group_id,question,answer,rejected
+sky,What is the color of sky ?,blue,green
+grass,What is the color of grass ?,green,blue
+ice,Ice is cold ?,yes,no
+sun,Sun is bright ?,yes,no
+one,1 + 1 = ?,2,3
+two,2 + 2 = ?,4,5
+three,3 + 1 = ?,4,2
+four,4 + 1 = ?,5,3
+five,5 + 1 = ?,6,4
+six,6 + 1 = ?,7,5
+seven,7 + 1 = ?,8,6
+water,Water freezes at zero degrees ?,yes,no

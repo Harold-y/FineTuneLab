@@ -1,0 +1,22 @@
+schema_version: 1
+method: sft
+model:
+  name_or_path: Qwen/Qwen3.5-2B
+data:
+  source: examples/data/sft.jsonl
+  source_type: local
+  modality: text
+  max_length: 2048
+tuning:
+  strategy: qlora
+  lora_rank: 16
+  lora_alpha: 32
+  quant_type: nf4
+  double_quant: true
+training:
+  output_dir: outputs/sft-2b-qlora
+  max_steps: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.0002
+

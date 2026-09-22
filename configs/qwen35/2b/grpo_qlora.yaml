@@ -1,0 +1,28 @@
+schema_version: 1
+method: grpo
+model:
+  name_or_path: Qwen/Qwen3.5-2B
+data:
+  source: examples/data/prompts.jsonl
+  source_type: local
+  modality: text
+  max_length: 1024
+tuning:
+  strategy: qlora
+training:
+  output_dir: outputs/grpo-2b-qlora
+  max_steps: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  learning_rate: 0.00001
+generation:
+  max_new_tokens: 128
+  num_candidates: 2
+rewards:
+  - name: numeric
+    weight: 1.0
+  - name: length
+    weight: 0.05
+num_generations: 2
+beta: 0.04
+

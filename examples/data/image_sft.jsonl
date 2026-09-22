@@ -1,0 +1,2 @@
+{"image":"tiny.ppm","messages":[{"role":"user","content":[{"type":"image"},{"type":"text","text":"What is the dominant color?"}]},{"role":"assistant","content":[{"type":"text","text":"Red."}]}]}
+

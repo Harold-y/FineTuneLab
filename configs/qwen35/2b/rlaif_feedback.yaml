@@ -1,0 +1,25 @@
+schema_version: 1
+method: grpo
+model:
+  name_or_path: Qwen/Qwen3.5-2B
+data:
+  source: examples/data/prompts.jsonl
+  source_type: local
+  modality: text
+  max_length: 1024
+tuning:
+  strategy: lora
+training:
+  output_dir: outputs/rlaif-feedback-2b
+  max_steps: 1
+generation:
+  max_new_tokens: 128
+  num_candidates: 2
+judge:
+  backend: openai_compatible
+  model: judge-model
+  base_url: http://localhost:8000/v1
+  api_key_env: OPENAI_API_KEY
+rewards:
+  - name: exact_match
+

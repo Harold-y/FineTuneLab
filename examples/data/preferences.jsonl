@@ -1,0 +1,3 @@
+{"prompt":"Explain gradient accumulation in one sentence.","chosen":"Gradient accumulation sums gradients over several microbatches before an optimizer step, simulating a larger batch.","rejected":"It downloads more gradients from the internet."}
+{"prompt":"What does a held-out split measure?","chosen":"It estimates performance on examples excluded from parameter updates.","rejected":"It is the part of the model stored on disk."}
+

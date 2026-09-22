@@ -1,0 +1,3 @@
+{"messages":[{"role":"user","content":"What is LoRA?"},{"role":"assistant","content":"LoRA trains small low-rank updates while keeping the base weights frozen."}]}
+{"messages":[{"role":"user","content":"Why validate training data?"},{"role":"assistant","content":"Validation catches schema and labeling errors before expensive model loading."}]}
+
