@@ -5,6 +5,7 @@ from typing import Any
 import torch
 
 from finetunelab.config import PPOConfig, load_config
+from finetunelab.devices import resolve_runtime
 from finetunelab.ppo import EducationalPPOTrainer
 
 ROOT = Path(__file__).parents[1]
@@ -92,6 +93,10 @@ def test_ppo_runs_one_optimization_step(tmp_path: Path) -> None:
         train_dataset=[{"input_ids": [1, 2]}, {"input_ids": [2, 3]}],
         eval_dataset=None,
     )
+    expected_device = resolve_runtime(config).device
+    assert trainer.accelerator.device.type == expected_device
+    for current in (trainer.model, trainer.reference, trainer.reward_model, trainer.value_model):
+        assert next(current.parameters()).device.type == expected_device
     result = trainer.train()
     assert result.metrics["steps"] == 1.0
     assert torch.isfinite(torch.tensor(result.metrics["loss/value"]))

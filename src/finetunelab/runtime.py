@@ -16,6 +16,7 @@ import torch
 
 from finetunelab import __version__
 from finetunelab.config import RecipeConfig, dump_config, redacted_dict
+from finetunelab.devices import DeviceRuntime
 
 TRACKED_PACKAGES = ("torch", "transformers", "trl", "peft", "datasets", "accelerate")
 
@@ -38,6 +39,8 @@ def environment_report() -> dict[str, Any]:
         "finetunelab": __version__,
         "python": sys.version.split()[0],
         "platform": platform.platform(),
+        "mps_available": torch.backends.mps.is_available(),
+        "mps_built": torch.backends.mps.is_built(),
         "cuda_available": torch.cuda.is_available(),
         "cuda_version": torch.version.cuda,
         "gpu_count": torch.cuda.device_count(),
@@ -46,10 +49,19 @@ def environment_report() -> dict[str, Any]:
     }
 
 
-def prepare_run_directory(config: RecipeConfig) -> Path:
+def prepare_run_directory(config: RecipeConfig, runtime: DeviceRuntime | None = None) -> Path:
     output = config.training.output_dir.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
-    dump_config(config, output / "resolved_config.yaml")
+    resolved = config.model_copy(deep=True)
+    if runtime is not None:
+        # Save effective settings so this file can be replayed on the same backend.
+        resolved.training.device = runtime.device  # type: ignore[assignment]
+        resolved.model.dtype = runtime.dtype  # type: ignore[assignment]
+        resolved.model.attention_implementation = runtime.attention  # type: ignore[assignment]
+        resolved.training.bf16 = runtime.bf16
+        resolved.training.fp16 = runtime.fp16
+        resolved.training.tf32 = runtime.tf32
+    dump_config(resolved, output / "resolved_config.yaml")
     return output
 
 
@@ -60,6 +72,7 @@ def write_manifest(
     dataset_id: str | None = None,
     parameters: dict[str, Any] | None = None,
     status: str = "initialized",
+    runtime: DeviceRuntime | None = None,
 ) -> Path:
     manifest = {
         "schema_version": 1,
@@ -67,6 +80,7 @@ def write_manifest(
         "status": status,
         "config": redacted_dict(config),
         "environment": environment_report(),
+        "runtime": runtime.report() if runtime else None,
         "dataset_fingerprint": dataset_id,
         "parameters": parameters,
         "process": {"pid": os.getpid()},

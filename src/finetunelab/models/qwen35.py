@@ -14,6 +14,7 @@ from typing import Any
 import torch
 
 from finetunelab.config import SUPPORTED_QWEN35_MODELS, RecipeConfig, TuningStrategy
+from finetunelab.devices import activate_runtime, resolve_runtime
 from finetunelab.errors import DependencyError, FineTuneLabError
 
 
@@ -76,17 +77,24 @@ class Qwen35Adapter:
         )
 
     def _model_kwargs(self, config: RecipeConfig) -> dict[str, Any]:
+        runtime = resolve_runtime(config)
+        activate_runtime(runtime)
         kwargs: dict[str, Any] = {
             "revision": config.model.revision,
             "trust_remote_code": config.model.trust_remote_code,
             "local_files_only": config.model.local_files_only,
-            "dtype": _dtype(config.model.dtype),
+            "dtype": runtime.torch_dtype,
         }
-        if config.model.attention_implementation != "auto":
-            kwargs["attn_implementation"] = config.model.attention_implementation
+        if runtime.attention != "auto":
+            kwargs["attn_implementation"] = runtime.attention
+        if runtime.device != "cuda":
+            kwargs["device_map"] = {"": runtime.device}
+        elif not config.training.deepspeed and not config.training.fsdp:
+            kwargs["device_map"] = {"": torch.cuda.current_device()}
         quantization = self.quantization_config(config)
         if quantization is not None:
             kwargs["quantization_config"] = quantization
+            kwargs["device_map"] = {"": torch.cuda.current_device()}
         return kwargs
 
     def load_policy_model(self, config: RecipeConfig) -> Any:
@@ -125,10 +133,7 @@ class Qwen35Adapter:
         try:
             model = AutoModelForSequenceClassification.from_pretrained(
                 name_or_path,
-                revision=config.model.revision,
-                trust_remote_code=config.model.trust_remote_code,
-                local_files_only=config.model.local_files_only,
-                dtype=_dtype(config.model.dtype),
+                **self._model_kwargs(config),
                 num_labels=1,
             )
             if getattr(model.config, "pad_token_id", None) is None:

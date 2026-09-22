@@ -13,6 +13,7 @@ import torch
 from finetunelab.config import RecipeConfig, TuningStrategy
 from finetunelab.data import load_datasets, validate_dataset
 from finetunelab.data.fingerprint import dataset_fingerprint
+from finetunelab.devices import activate_runtime, resolve_runtime
 from finetunelab.errors import ConfigurationError, FineTuneLabError
 from finetunelab.judges import build_judge
 from finetunelab.models import get_model_adapter
@@ -27,6 +28,7 @@ from finetunelab.tuning import apply_tuning_strategy, parameter_report
 
 
 def inspect_model(config: RecipeConfig) -> dict[str, Any]:
+    activate_runtime(resolve_runtime(config))
     adapter = get_model_adapter(config.model.name_or_path)
     model = apply_tuning_strategy(adapter.load_policy_model(config), config)
     return {
@@ -49,14 +51,21 @@ def validate_data_workflow(config: RecipeConfig) -> dict[str, Any]:
 
 
 def train(config: RecipeConfig, resume: str | None = None) -> dict[str, Any]:
+    device_runtime = resolve_runtime(config)
+    activate_runtime(device_runtime)
     seed_everything(config.training.seed)
-    output = prepare_run_directory(config)
+    output = prepare_run_directory(config, device_runtime)
     train_dataset, eval_dataset = load_datasets(config)
     fingerprint = dataset_fingerprint(train_dataset, config)
     trainer = build_trainer(config, train_dataset, eval_dataset)
     report = parameter_report(trainer.model)
     manifest_path = write_manifest(
-        output, config, dataset_id=fingerprint, parameters=report, status="training"
+        output,
+        config,
+        dataset_id=fingerprint,
+        parameters=report,
+        status="training",
+        runtime=device_runtime,
     )
     checkpoint = resume or config.training.resume_from_checkpoint
     try:
@@ -120,7 +129,7 @@ def evaluate(config: RecipeConfig, checkpoint: str | None = None) -> dict[str, A
         metrics["eval_perplexity"] = math.exp(min(float(metrics["eval_loss"]), 700))
     metrics["checkpoint"] = target
     metrics["evaluated_samples"] = len(eval_dataset)
-    output = prepare_run_directory(runtime)
+    output = prepare_run_directory(runtime, resolve_runtime(runtime))
     samples = []
     if str(config.method) != "reward" and config.evaluation.generate_samples:
         processor = get_model_adapter(runtime.model.name_or_path).load_processor(runtime)
@@ -135,6 +144,7 @@ def evaluate(config: RecipeConfig, checkpoint: str | None = None) -> dict[str, A
         dataset_id=dataset_fingerprint(eval_dataset, config),
         parameters=parameter_report(trainer.model),
         status="evaluated",
+        runtime=resolve_runtime(runtime),
     )
     return metrics
 
@@ -187,14 +197,15 @@ def generate_feedback(config: RecipeConfig) -> dict[str, Any]:
         raise ConfigurationError("feedback generation requires a judge section")
     if config.data.modality != "text":
         raise ConfigurationError("v1 feedback generation supports text prompts only")
+    activate_runtime(resolve_runtime(config))
     train_dataset, _ = load_datasets(config)
     adapter = get_model_adapter(config.model.name_or_path)
     processor = adapter.load_processor(config)
     tokenizer = getattr(processor, "tokenizer", processor)
     model = adapter.load_policy_model(config)
     model.eval()
-    judge = build_judge(config.judge)
-    output = prepare_run_directory(config) / "feedback.jsonl"
+    judge = build_judge(config.judge, runtime=resolve_runtime(config))
+    output = prepare_run_directory(config, resolve_runtime(config)) / "feedback.jsonl"
     count = 0
     with output.open("w", encoding="utf-8") as handle:
         for row in train_dataset:

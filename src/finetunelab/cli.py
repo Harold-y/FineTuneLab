@@ -10,7 +10,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from finetunelab.config import load_config
+from finetunelab.config import DeviceChoice, RecipeConfig, load_config
 from finetunelab.errors import FineTuneLabError
 from finetunelab.runtime import environment_report
 from finetunelab.workflows import (
@@ -32,6 +32,14 @@ app.add_typer(feedback_app, name="feedback")
 console = Console()
 
 ConfigPath = Annotated[Path, typer.Option("--config", "-c", exists=True, dir_okay=False)]
+DeviceOption = Annotated[DeviceChoice | None, typer.Option(help="Override the configured backend.")]
+
+
+def _device_config(path: Path, device: DeviceChoice | None) -> RecipeConfig:
+    config = load_config(path)
+    if device is not None:
+        config.training.device = device
+    return config
 
 
 def _emit(value: Any) -> None:
@@ -54,7 +62,16 @@ def doctor() -> None:
     table = Table(title="FineTuneLab environment")
     table.add_column("Item")
     table.add_column("Value")
-    for key in ("finetunelab", "python", "platform", "cuda_available", "cuda_version", "gpu_count"):
+    for key in (
+        "finetunelab",
+        "python",
+        "platform",
+        "cuda_available",
+        "cuda_version",
+        "gpu_count",
+        "mps_available",
+        "mps_built",
+    ):
         table.add_row(key, str(report[key]))
     for package, version in report["packages"].items():
         table.add_row(package, str(version))
@@ -64,10 +81,10 @@ def doctor() -> None:
 
 
 @model_app.command("inspect")
-def model_inspect(config: ConfigPath) -> None:
+def model_inspect(config: ConfigPath, device: DeviceOption = None) -> None:
     """Load a model, apply the tuning strategy, and report trainable parameters."""
 
-    _guard(inspect_model, load_config(config))
+    _guard(inspect_model, _device_config(config, device))
 
 
 @data_app.command("validate")
@@ -78,39 +95,41 @@ def data_validate(config: ConfigPath) -> None:
 
 
 @feedback_app.command("generate")
-def feedback_generate(config: ConfigPath) -> None:
+def feedback_generate(config: ConfigPath, device: DeviceOption = None) -> None:
     """Generate candidates and collect local or API-based AI preferences."""
 
-    _guard(generate_feedback, load_config(config))
+    _guard(generate_feedback, _device_config(config, device))
 
 
 @app.command("train")
 def train_command(
     config: ConfigPath,
+    device: DeviceOption = None,
     resume: Annotated[str | None, typer.Option(help="Checkpoint directory or 'latest'.")] = None,
 ) -> None:
     """Run a configured training recipe."""
 
-    _guard(train, load_config(config), resume)
+    _guard(train, _device_config(config, device), resume)
 
 
 @app.command("evaluate")
 def evaluate_command(
     config: ConfigPath,
+    device: DeviceOption = None,
     checkpoint: Annotated[
         str | None, typer.Option(help="Model or adapter; defaults to run/final.")
     ] = None,
 ) -> None:
     """Evaluate the configured checkpoint on data.eval_split."""
 
-    _guard(evaluate, load_config(config), checkpoint)
+    _guard(evaluate, _device_config(config, device), checkpoint)
 
 
 @app.command("export")
-def export_command(config: ConfigPath) -> None:
+def export_command(config: ConfigPath, device: DeviceOption = None) -> None:
     """Merge a PEFT adapter and save a standalone Hugging Face checkpoint."""
 
-    _guard(export_model, load_config(config))
+    _guard(export_model, _device_config(config, device))
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -25,6 +25,13 @@ class Method(StrEnum):
     DISTILLATION = "distillation"
 
 
+class DeviceChoice(StrEnum):
+    AUTO = "auto"
+    CPU = "cpu"
+    MPS = "mps"
+    CUDA = "cuda"
+
+
 class TuningStrategy(StrEnum):
     """Ways in which model parameters may be updated."""
 
@@ -111,6 +118,7 @@ class TuningConfig(StrictModel):
 
 
 class TrainingConfig(StrictModel):
+    device: DeviceChoice = DeviceChoice.AUTO
     output_dir: Path = Path("outputs/run")
     num_train_epochs: float = Field(default=1.0, gt=0)
     max_steps: int = -1

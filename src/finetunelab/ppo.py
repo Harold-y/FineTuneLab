@@ -19,6 +19,7 @@ from accelerate import Accelerator
 from torch.utils.data import DataLoader
 
 from finetunelab.config import PPOConfig
+from finetunelab.devices import activate_runtime, resolve_runtime
 
 
 class EducationalPPOTrainer:
@@ -43,8 +44,12 @@ class EducationalPPOTrainer:
         self.reward_model = reward_model
         self.value_model = value_model
         self.eval_dataset = eval_dataset
+        runtime = resolve_runtime(config)
+        activate_runtime(runtime)
         self.accelerator = Accelerator(
-            gradient_accumulation_steps=config.training.gradient_accumulation_steps
+            cpu=runtime.device == "cpu",
+            mixed_precision="bf16" if runtime.bf16 else "fp16" if runtime.fp16 else "no",
+            gradient_accumulation_steps=config.training.gradient_accumulation_steps,
         )
         self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:

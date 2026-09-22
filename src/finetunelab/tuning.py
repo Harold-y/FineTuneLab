@@ -78,7 +78,12 @@ def apply_tuning_strategy(model: Any, config: RecipeConfig) -> Any:
         bias="none",
         task_type=task_type,
     )
-    return get_peft_model(model, lora)
+    model = get_peft_model(model, lora)
+    if config.training.gradient_checkpointing:
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+        model.enable_input_require_grads()
+        model.config.use_cache = False
+    return model
 
 
 def parameter_report(model: Any) -> dict[str, int | float]:

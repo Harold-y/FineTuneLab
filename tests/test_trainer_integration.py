@@ -16,6 +16,7 @@ from transformers import (
 )
 
 from finetunelab.config import RECIPE_ADAPTER, RecipeConfig
+from finetunelab.devices import resolve_runtime
 from finetunelab.models.registry import register_model_adapter
 from finetunelab.recipes import build_trainer
 
@@ -149,6 +150,12 @@ def test_offline_trainers_run_one_step(method: str, tiny_checkpoint: Path, tmp_p
         raw["model"]["reward_name_or_path"] = str(tiny_checkpoint)
     config = RECIPE_ADAPTER.validate_python(raw)
     trainer = build_trainer(config, Dataset.from_list(rows))
+    expected_device = resolve_runtime(config).device
+    assert trainer.accelerator.device.type == expected_device
+    for name in ("model", "ref_model", "teacher_model"):
+        auxiliary = getattr(trainer, name, None)
+        if auxiliary is not None:
+            assert next(auxiliary.parameters()).device.type == expected_device
     result = trainer.train()
     assert result.metrics["train_loss"] >= 0
 
@@ -168,6 +175,12 @@ def test_grpo_trainer_runs_one_step_offline(tiny_checkpoint: Path, tmp_path: Pat
         [{"prompt": "one", "answer": "two"}, {"prompt": "two", "answer": "one"}]
     )
     trainer = build_trainer(config, dataset)
+    expected_device = resolve_runtime(config).device
+    assert trainer.accelerator.device.type == expected_device
+    for name in ("model", "ref_model", "teacher_model"):
+        auxiliary = getattr(trainer, name, None)
+        if auxiliary is not None:
+            assert next(auxiliary.parameters()).device.type == expected_device
     result = trainer.train()
     assert result.metrics["train_loss"] >= 0
 
@@ -195,5 +208,11 @@ def test_distillation_trainer_runs_one_step_offline(tiny_checkpoint: Path, tmp_p
     config = RECIPE_ADAPTER.validate_python(raw)
     dataset = Dataset.from_list([{"prompt": "one"}, {"prompt": "two"}])
     trainer = build_trainer(config, dataset)
+    expected_device = resolve_runtime(config).device
+    assert trainer.accelerator.device.type == expected_device
+    for name in ("model", "ref_model", "teacher_model"):
+        auxiliary = getattr(trainer, name, None)
+        if auxiliary is not None:
+            assert next(auxiliary.parameters()).device.type == expected_device
     result = trainer.train()
     assert result.metrics["train_loss"] >= 0

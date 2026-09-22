@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from finetunelab.config import JudgeConfig
+from finetunelab.devices import DeviceRuntime, activate_runtime, resolve_runtime
 from finetunelab.errors import FineTuneLabError
 
 
@@ -84,11 +85,19 @@ class OpenAICompatibleJudge:
 @dataclass
 class LocalJudge:
     config: JudgeConfig
+    runtime: DeviceRuntime | None = None
 
     def __post_init__(self) -> None:
         from transformers import pipeline
 
-        self._pipeline = pipeline("text-generation", model=self.config.model, device_map="auto")
+        runtime = self.runtime or resolve_runtime()
+        activate_runtime(runtime)
+        self._pipeline = pipeline(
+            "text-generation",
+            model=self.config.model,
+            device=runtime.device,
+            dtype=runtime.torch_dtype,
+        )
 
     def compare(self, prompt: str, candidates: list[str]) -> dict[str, Any]:
         messages = _judge_messages(self.config, prompt, candidates)
@@ -101,7 +110,9 @@ class LocalJudge:
         return result
 
 
-def build_judge(config: JudgeConfig) -> LocalJudge | OpenAICompatibleJudge:
+def build_judge(
+    config: JudgeConfig, *, runtime: DeviceRuntime | None = None
+) -> LocalJudge | OpenAICompatibleJudge:
     if config.backend == "local":
-        return LocalJudge(config)
+        return LocalJudge(config, runtime)
     return OpenAICompatibleJudge(config)

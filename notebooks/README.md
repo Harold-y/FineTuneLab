@@ -45,6 +45,9 @@ Each chapter has learning objectives, executable steps, intermediate inspections
 
 ## Install and open
 
+On Apple Silicon, follow [Mac setup](../docs/MAC_SETUP.md) for the pinned Mac
+dependencies, **FineTuneLab (Mac)** kernel, and local model checks.
+
 From the project root:
 
 ```bash
@@ -76,11 +79,15 @@ $env:FTLAB_QA_FILE = "D:\Data\qa.csv"
 uv run jupyter lab notebooks
 ```
 
-Linux uses the same variable names with shell `export`. Paths are handled with `pathlib`; use raw Python strings for manually entered Windows paths. Enable the quant extra for QLoRA. A CUDA-enabled PyTorch/torchvision pair must match your platform; the CPU installation is enough only for the tiny course.
+Linux and macOS use the same variable names with shell `export`. Set `FTLAB_DEVICE`
+to `cpu`, `mps`, `cuda`, or `auto` for local checkpoints. CPU/MPS default to
+unquantized LoRA; CUDA QLoRA needs the quant extra. See [device selection](../docs/DEVICES.md)
+for the tested 2B MPS SFT setup and bounded training controls. Paths use `pathlib`;
+use raw Python strings for manually entered Windows paths.
 
 The snapshot must include config, all weight shards, tokenizer assets, processor configuration and chat template. Every loader uses `local_files_only=True`. An incomplete download raises an error instead of silently fetching files. Use the matching Base snapshot for DAPT. Source code inspection does not imply that a default config has the same dimensions as a downloaded 2B/4B model.
 
-Most real training lessons use QLoRA by default. Reward/PPO uses unquantized policy/reward/reference/value models, and GKD also holds an unquantized teacher: these profiles need larger GPUs. CPU success is not a claim that all real profiles fit in 16 GB. The framework comparison cells in advanced lessons run automatically only in tiny mode; run them in a fresh process for real models.
+CUDA real-model lessons use QLoRA by default where supported; CPU/MPS use LoRA. Reward/PPO uses unquantized policy/reward/reference/value models, and GKD also holds an unquantized teacher: these profiles need larger GPUs. CPU success is not a claim that all real profiles fit in 16 GB. The framework comparison cells in advanced lessons run automatically only in tiny mode; run them in a fresh process for real models.
 
 ## Bring your own data
 

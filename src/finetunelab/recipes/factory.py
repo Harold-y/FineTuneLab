@@ -21,6 +21,7 @@ from finetunelab.config import (
     RewardConfig,
     SFTConfig,
 )
+from finetunelab.devices import activate_runtime, resolve_runtime
 from finetunelab.errors import FineTuneLabError
 from finetunelab.models import get_model_adapter
 from finetunelab.rewards import build_reward_functions
@@ -38,6 +39,7 @@ def _supported_kwargs(callable_object: Any, values: dict[str, Any]) -> dict[str,
 
 def _common_args(config: RecipeConfig) -> dict[str, Any]:
     training = config.training
+    runtime = resolve_runtime(config)
     values: dict[str, Any] = {
         "output_dir": str(training.output_dir),
         "num_train_epochs": training.num_train_epochs,
@@ -52,9 +54,11 @@ def _common_args(config: RecipeConfig) -> dict[str, Any]:
         "save_steps": training.save_steps,
         "save_total_limit": training.save_total_limit,
         "gradient_checkpointing": training.gradient_checkpointing,
-        "bf16": training.bf16,
-        "fp16": training.fp16,
-        "tf32": training.tf32,
+        "bf16": runtime.bf16,
+        "fp16": runtime.fp16,
+        "tf32": runtime.tf32,
+        "use_cpu": runtime.device == "cpu",
+        "gradient_checkpointing_kwargs": {"use_reentrant": False},
         "seed": training.seed,
         "data_seed": training.seed,
         "report_to": training.report_to,
@@ -68,10 +72,17 @@ def _common_args(config: RecipeConfig) -> dict[str, Any]:
     return values
 
 
+def _runtime_attention(model: Any, config: RecipeConfig) -> Any:
+    attention = resolve_runtime(config).attention
+    if attention != "auto" and hasattr(model, "set_attn_implementation"):
+        model.set_attn_implementation(attention)
+    return model
+
+
 def _load_policy(config: RecipeConfig) -> tuple[Any, Any, Any]:
     adapter = get_model_adapter(config.model.name_or_path)
     processor = adapter.load_processor(config)
-    model = adapter.load_policy_model(config)
+    model = _runtime_attention(adapter.load_policy_model(config), config)
     if (
         config.data.modality == Modality.IMAGE_TEXT
         and str(config.tuning.strategy) in {"lora", "qlora"}
@@ -149,7 +160,9 @@ def _build_reward(config: RewardConfig, dataset: Any, eval_dataset: Any | None) 
         trust_remote_code=config.model.trust_remote_code,
         local_files_only=config.model.local_files_only,
     )
-    model = apply_tuning_strategy(adapter.load_reward_model(config, checkpoint), config)
+    model = apply_tuning_strategy(
+        _runtime_attention(adapter.load_reward_model(config, checkpoint), config), config
+    )
     values = _common_args(config) | {"max_length": config.data.max_length}
     args = TRLRewardConfig(**_supported_kwargs(TRLRewardConfig, values))
     return RewardTrainer(
@@ -188,9 +201,9 @@ def _build_ppo(config: PPOConfig, dataset: Any, eval_dataset: Any | None) -> Any
             "PPO requires model.reward_name_or_path and model.value_name_or_path "
             "(value may default to reward when reward is provided)."
         )
-    reference = adapter.load_named_policy_model(config, reference_name)
-    reward = adapter.load_reward_model(config, reward_name)
-    value = adapter.load_reward_model(config, value_name)
+    reference = _runtime_attention(adapter.load_named_policy_model(config, reference_name), config)
+    reward = _runtime_attention(adapter.load_reward_model(config, reward_name), config)
+    value = _runtime_attention(adapter.load_reward_model(config, value_name), config)
     return EducationalPPOTrainer(
         config=config,
         tokenizer=getattr(processor, "tokenizer", processor),
@@ -241,7 +254,9 @@ def _build_distillation(config: DistillationConfig, dataset: Any, eval_dataset: 
     args = TRLDistillationConfig(**_supported_kwargs(TRLDistillationConfig, values))
     return DistillationTrainer(
         model=student,
-        teacher_model=adapter.load_named_policy_model(config, config.model.teacher_name_or_path),
+        teacher_model=_runtime_attention(
+            adapter.load_named_policy_model(config, config.model.teacher_name_or_path), config
+        ),
         args=args,
         train_dataset=dataset,
         eval_dataset=eval_dataset,
@@ -252,6 +267,7 @@ def _build_distillation(config: DistillationConfig, dataset: Any, eval_dataset: 
 def build_trainer(config: RecipeConfig, dataset: Any, eval_dataset: Any | None = None) -> Any:
     """Build the trainer selected by the discriminated recipe configuration."""
 
+    activate_runtime(resolve_runtime(config))
     if isinstance(config, (DAPTConfig, SFTConfig)):
         return _build_sft_like(config, dataset, eval_dataset)
     if isinstance(config, DPOConfig):

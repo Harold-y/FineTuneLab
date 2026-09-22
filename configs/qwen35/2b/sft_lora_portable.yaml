@@ -1,0 +1,27 @@
+schema_version: 1
+method: sft
+model:
+  name_or_path: ../models/Qwen3.5-2B
+  local_files_only: true
+data:
+  source: examples/data/sft.jsonl
+  source_type: local
+  max_length: 128
+tuning:
+  strategy: lora
+  lora_rank: 4
+  lora_alpha: 8
+  lora_dropout: 0.0
+training:
+  device: auto
+  output_dir: outputs/sft-2b-portable
+  max_steps: 2
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 1
+  gradient_checkpointing: true
+  learning_rate: 0.0002
+  logging_steps: 1
+  save_steps: 100
+generation:
+  max_new_tokens: 4
